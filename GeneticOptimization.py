@@ -5,12 +5,14 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class GeneticOptimization:
-    def __init__(self, population_size: int, fun, mutation_rate: float, boundaries):
+    def __init__(self, population_size: int, fun, mutation_rate: float, boundaries, hyperbolic_shift: float, min_value_reinforcement: float):
         self.__population_size = population_size
         self.__fun = fun
         self.__mutation_rate = mutation_rate
         self.__boundaries = boundaries
         self.__population = self.__generate_population()
+        self.hyperbolic_shift = hyperbolic_shift
+        self.min_value_reinforcement = min_value_reinforcement
 
     def __generate_population(self):
         return [(rand.uniform(self.__boundaries[0][0], self.__boundaries[0][1]),
@@ -20,15 +22,16 @@ class GeneticOptimization:
     def calculate_fittnes(self, population):
         return [self.__fun(*x) for x in population]
 
-    def calculate_selection(self, fitness):
-        max_fitness = sum(fitness)
-        sel_max = [[index, (fit/max_fitness)] for index, fit in enumerate(fitness)]
+    def calculate_selection(self, fitness, hyperbole_shift: float, min_number_enhancement: float):
+        fitness_min = min(fitness) + hyperbole_shift
+        fitness_copy = [1/(value + fitness_min) for value in fitness]
+        fitness_max = max(enumerate(fitness_copy), key= lambda value: value[1])
+        fitness_copy[fitness_max[0]] += min_number_enhancement   # adding to make min much stronger than other numbers
+        # normalizing data
+        fitness_sum = sum(fitness_copy)
+        sel_max = [[index, (fit/fitness_sum)] for index, fit in enumerate(fitness_copy)]
+
         sorted_sel_max = sorted(sel_max, key=lambda val:val[1])
-        tab_middle = (int)(math.floor(len(sorted_sel_max)/2))
-        for left, right in zip(sorted_sel_max[:tab_middle], sorted_sel_max[:tab_middle - 1:-1]):
-            temp = left[0]
-            left[0] = right[0]
-            right[0] = temp
 
         return sorted_sel_max
 
@@ -40,12 +43,11 @@ class GeneticOptimization:
         :param fitness:
         :return:
         """
-        sorted_selections = sorted(selection, key=lambda val: val[1])
         to_ret = []
         for _ in range(len(selection)):
             sum = 0
             rand_num = rand.uniform(0, 0.99)
-            for index, value in sorted_selections:
+            for index, value in selection:
                 sum += value
                 if(rand_num < sum):
                     to_ret.append(index)
@@ -75,7 +77,7 @@ class GeneticOptimization:
         best_child = None
         for _ in range(steps_num):
             actual_fitness = self.calculate_fittnes(self.__population)
-            selection_values = self.calculate_selection(actual_fitness)
+            selection_values = self.calculate_selection(actual_fitness, self.hyperbolic_shift, self.min_value_reinforcement)
             selection_indexes = self.perform_selection(selection_values)
             # generating new population
             new_population = []
@@ -106,6 +108,8 @@ class GeneticOptimization:
                 best_child = act_best_child
                 if accuracy is not None and act_accuracy <= accuracy:
                     break
+
+            plot_3d.scatter(best_child[0], best_child[1], self.__fun(best_child[0], best_child[1]), c="blue", marker="o")
             plt.pause(1)
         # getting best child
 
@@ -114,5 +118,8 @@ class GeneticOptimization:
 
 if __name__ == "__main__":
     f = lambda x, y: 20 + (x**2 - 10*math.cos(2 * math.pi * x)) + (y**2 - 10*math.cos(2 * math.pi * y))
-    gen = GeneticOptimization(1000, f, 0, ((-5.12, 5.12), (-5.12, 5.12)))
+    f1 = lambda x, y: -math.cos(x) * math.cos(y) * math.exp(-((x - math.pi)**2 + (y - math.pi)**2))
+    gen = GeneticOptimization(1500, f, 1e-7, ((-10, 10), (-10, 10)), 0.1, 2)
     print(gen.find(20, None))
+    gen2 = GeneticOptimization(1000, f1, 1e-7, ((-100, 100), (-100, 100)), 2, 100)
+    print(gen2.find(10, None))
